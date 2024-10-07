@@ -45,8 +45,17 @@ const REGEXP_BY_DATA_TYPE: Record<DataType, RegExp> = {
   [DataType.REAL]: /^-?[0-9]+(\.[0-9]+)?$/,
   [DataType.CHAR]: /^.{1}$/,
   [DataType.STRING]: /^.{1,}$/,
-  [DataType.STRING_INTERVAL]: /^.{1,}$/,
-  [DataType.CHAR_INTERVAL]: /^.{1}$/,
+  [DataType.STRING_INTERVAL]: /^.{1,} - .{1,}$/,
+  [DataType.CHAR_INTERVAL]: /^.{1} - .{1}$/,
+};
+
+const EXPECTED_FORMAT_BY_DATA_TYPE: Record<DataType, string> = {
+  [DataType.INTEGER]: '12',
+  [DataType.REAL]: '1.4',
+  [DataType.CHAR]: 'a',
+  [DataType.STRING]: 'abc',
+  [DataType.STRING_INTERVAL]: 'abc - def',
+  [DataType.CHAR_INTERVAL]: 'a - b',
 };
 
 const RowValuesFormModal: React.FC<Props> = ({
@@ -162,7 +171,7 @@ const RowValuesFormModal: React.FC<Props> = ({
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={clearAndCloseModal} isCentered>
+      <Modal isOpen={isOpen} onClose={clearAndCloseModal} isCentered size='xl'>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Add row</ModalHeader>

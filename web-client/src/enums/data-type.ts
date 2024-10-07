@@ -3,8 +3,8 @@ enum DataType {
   REAL = 'real',
   CHAR = 'char',
   STRING = 'string',
-  STRING_INTERVAL = 'string_interval',
-  CHAR_INTERVAL = 'char_interval',
+  STRING_INTERVAL = 'stringInterval',
+  CHAR_INTERVAL = 'charInterval',
 }
 
 export { DataType };

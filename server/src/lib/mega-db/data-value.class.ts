@@ -22,6 +22,14 @@ class DataValue {
     return this.value;
   }
 
+  public toJSON(): object {
+    return {
+      value: this.value,
+      dataType: this.dataType.name,
+      formattedValue: this.formatValue(),
+    };
+  }
+
   private dataType: DataType;
   private value: unknown;
 }

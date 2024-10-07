@@ -49,7 +49,7 @@ const TablePage: React.FC = () => {
     return Object.keys(data[0]).map((key) => {
       return {
         name: key,
-        dataType: data[0][key].dataType.name as DataType,
+        dataType: data[0][key].dataType as DataType,
       };
     });
   }, [data]);
@@ -165,7 +165,11 @@ const TablePage: React.FC = () => {
                   <Tr key={index}>
                     {columns.map((column) => (
                       <Td key={column.name}>
-                        {row[column.name].value ?? <i>null</i>}
+                        {row[column.name].value ? (
+                          row[column.name].formattedValue
+                        ) : (
+                          <i>null</i>
+                        )}
                       </Td>
                     ))}
                   </Tr>

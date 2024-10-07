@@ -9,6 +9,7 @@ const Root: React.FC = () => {
       justifyContent='center'
       minH='100vh'
       bg='gray.100'
+      p='8'
     >
       <Card minW='lg'>
         <CardBody>
