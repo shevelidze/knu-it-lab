@@ -1,1 +1,1 @@
-export { databaseService } from './database.service';
+export { databaseManagerService } from './database-manager.service';

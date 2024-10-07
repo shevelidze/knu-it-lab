@@ -27,6 +27,9 @@ const String: StringDataType = Object.freeze<StringDataType>({
   equals(value: unknown, otherValue: unknown): boolean {
     return value === otherValue;
   },
+  parseValue(value: string): string {
+    return value;
+  },
 });
 
 export { String };

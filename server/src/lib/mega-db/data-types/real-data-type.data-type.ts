@@ -8,7 +8,7 @@ interface RealDataType extends DataType, EqualsOperationDataTypeMixin {
 const Real = Object.freeze<RealDataType>({
   name: 'real',
   validate(value: unknown): void {
-    if (typeof value !== 'number') {
+    if (typeof value !== 'number' || isNaN(value)) {
       throw new Error('Value is not a number');
     }
   },
@@ -17,6 +17,9 @@ const Real = Object.freeze<RealDataType>({
   },
   equals(value: unknown, otherValue: unknown): boolean {
     return value === otherValue;
+  },
+  parseValue(value: string): number {
+    return parseFloat(value);
   },
 });
 

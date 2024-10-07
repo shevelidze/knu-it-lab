@@ -12,7 +12,6 @@ import {
 import { DataTypes } from './data-types';
 
 interface TableMetadata {
-  name: string;
   columns: Column[];
 }
 
@@ -34,26 +33,7 @@ async function getTableMetadataByPath(
 
     const parsedJson = JSON.parse(metadataFileContent);
 
-    const columns: Column[] = [];
-
-    for (const parsedColumn of parsedJson.columns) {
-      const dataType = Object.values(DataTypes).find(
-        (dataType) => dataType.name === parsedColumn.dataType,
-      );
-
-      if (!dataType) {
-        throw new MegaDbError(
-          `Data type ${parsedColumn.dataType} not found for column ${parsedColumn.name}`,
-        );
-      }
-
-      columns.push(new Column(parsedColumn.name, dataType));
-    }
-
-    return {
-      name: parsedJson.name,
-      columns,
-    };
+    return Table.parseMetadata(parsedJson);
   } catch {
     throw new MegaDbError(`Table metadata not found at ${metadataFile}.`);
   }
@@ -80,27 +60,87 @@ interface FindOptions {
   where?: SearchExpression;
   limit?: number;
   offset?: number;
-  columns: string[];
+  columns?: string[];
+}
+
+interface DeleteOptions {
+  where?: SearchExpression;
+}
+
+interface InsertOneOptions {
+  value: Record<string, string>;
+}
+
+interface UpdateAllOptions {
+  where: SearchExpression;
+  value: Record<string, string>;
 }
 
 class Table {
   constructor({
     tablePath,
-    name,
     columns,
   }: {
     tablePath: string;
-    name: string;
     columns: Column[];
   }) {
     this.tablePath = tablePath;
-    this.name = name;
     this.columns = columns;
-    this.logger = new Logger({ namespace: `Table - ${name}` });
+    this.logger = new Logger({ namespace: `Table - ${this.getName()}` });
+  }
+
+  static async createOnPath(
+    tablePath: string,
+    metadata: TableMetadata,
+  ): Promise<Table> {
+    fs.mkdir(tablePath, { recursive: true });
+
+    const table = new Table({ tablePath, columns: metadata.columns });
+
+    await table.saveData([]);
+    await table.saveMetadata();
+
+    return table;
+  }
+
+  static parseMetadata(target: unknown): TableMetadata {
+    const columns: Column[] = [];
+
+    for (const parsedColumn of (target as any).columns) {
+      const dataType = Object.values(DataTypes).find(
+        (dataType) => dataType.name === parsedColumn.dataType,
+      );
+
+      if (!dataType) {
+        throw new MegaDbError(
+          `Data type ${parsedColumn.dataType} not found for column ${parsedColumn.name}`,
+        );
+      }
+
+      columns.push(new Column(parsedColumn.name, dataType));
+    }
+
+    return {
+      columns,
+    };
+  }
+
+  public async delete(): Promise<void> {
+    const tables = this.getTablesOrThrow();
+
+    const tableIndex = tables.findIndex((table) => table === this);
+
+    if (tableIndex === -1) {
+      throw new MegaDbError('Table not found in tables');
+    }
+
+    tables.splice(tableIndex, 1);
+
+    await fs.rm(this.tablePath, { recursive: true });
   }
 
   public getName(): string {
-    return this.name;
+    return path.basename(this.tablePath);
   }
 
   public setTables(tables: Table[]): void {
@@ -108,34 +148,165 @@ class Table {
   }
 
   public async findAll(
-    options: FindOptions = {
-      columns: this.columns.map((column) => column.name),
-    },
-  ): Promise<Record<string, DataValue>[]> {
-    const columns = options.columns.map((columnName) =>
-      this.getColumnByName(columnName),
-    );
+    options: FindOptions = {},
+  ): Promise<Record<string, DataValue | null>[]> {
+    const columns = (
+      options.columns ?? this.columns.map((column) => column.name)
+    ).map((columnName) => this.getColumnByName(columnName));
 
     const rawData = await this.loadRawData();
 
     const filteredRawData = this.filterRawData(rawData, columns, options.where);
 
     return filteredRawData.map((row) => {
-      return Object.fromEntries(
-        columns.map((column) => {
-          return [
-            column.name,
-            new DataValue(row[column.name] ?? null, column.dataType),
-          ];
-        }),
-      );
+      return this.mapRawRow(row, columns);
     });
+  }
+
+  public async deleteAll(
+    options: DeleteOptions = {},
+  ): Promise<Record<string, DataValue>[]> {
+    const rawData = await this.loadRawData();
+
+    const dataToReturn: typeof rawData = [];
+    const dataToSave: typeof rawData = [];
+
+    for (const row of rawData) {
+      if (this.evaluateSearchExpression(row, this.columns, options.where)) {
+        dataToReturn.push(row);
+      } else {
+        dataToSave.push(row);
+      }
+    }
+
+    await this.saveData(dataToSave);
+
+    return dataToReturn.map((row) => {
+      return this.mapRawRow(row, this.columns);
+    });
+  }
+
+  public getColumns(): Column[] {
+    return this.columns;
+  }
+
+  public async updateAll(
+    options: UpdateAllOptions,
+  ): Promise<Record<string, DataValue>[]> {
+    const rawData = await this.loadRawData();
+
+    const updatedData: typeof rawData = rawData.map((row) => {
+      const rowCopy = { ...row };
+
+      if (!this.evaluateSearchExpression(row, this.columns, options.where)) {
+        return rowCopy;
+      }
+
+      for (const column of this.columns) {
+        if (column.name in options.value) {
+          const unparsedValue = options.value[column.name];
+
+          if (unparsedValue === null) {
+            rowCopy[column.name] = null;
+          } else if (unparsedValue !== undefined) {
+            rowCopy[column.name] = column.dataType.parseValue(unparsedValue);
+          }
+        }
+      }
+
+      return rowCopy;
+    });
+
+    await this.saveData(updatedData);
+
+    return updatedData.map((row) => {
+      return this.mapRawRow(row, this.columns);
+    });
+  }
+
+  public async insertOne(
+    options: InsertOneOptions,
+  ): Promise<Record<string, DataValue>> {
+    const rawData = await this.loadRawData();
+
+    const valueToInsert: Record<string, DataValue> = {};
+
+    for (const column of this.columns) {
+      if (column.name in options.value) {
+        const unparsedValue = options.value[column.name];
+
+        if (unparsedValue === null) {
+          continue;
+        }
+
+        valueToInsert[column.name] = new DataValue(
+          column.dataType.parseValue(unparsedValue),
+          column.dataType,
+        );
+      }
+    }
+
+    const rawValueToInsert = Object.fromEntries(
+      this.columns.map((column) => {
+        return [
+          column.name,
+          valueToInsert[column.name]
+            ? valueToInsert[column.name].getValue()
+            : null,
+        ];
+      }),
+    );
+
+    rawData.push(rawValueToInsert);
+
+    await this.saveData(rawData);
+
+    return valueToInsert;
   }
 
   static async loadTableByPath(tablePath: string): Promise<Table> {
     const metadata = await getTableMetadataByPath(tablePath);
 
-    return new Table({ tablePath: tablePath, ...metadata });
+    return new Table({
+      tablePath: tablePath,
+      ...metadata,
+    });
+  }
+
+  private mapRawRow(
+    row: Record<string, unknown>,
+    columns: Column[],
+  ): Record<string, DataValue> {
+    return Object.fromEntries(
+      columns.map((column) => {
+        return [column.name, new DataValue(row[column.name], column.dataType)];
+      }),
+    );
+  }
+
+  private async saveData(data: Record<string, unknown>[]): Promise<void> {
+    const dataFile = path.join(this.tablePath, 'data.json');
+
+    await fs.writeFile(dataFile, JSON.stringify(data, null, 2), {
+      encoding: 'utf-8',
+    });
+  }
+
+  private async saveMetadata(): Promise<void> {
+    const metadataToSave = {
+      columns: this.columns.map((column) => {
+        return {
+          name: column.name,
+          dataType: column.dataType.name,
+        };
+      }),
+    };
+
+    const metadataFile = path.join(this.tablePath, 'metadata.json');
+
+    await fs.writeFile(metadataFile, JSON.stringify(metadataToSave, null, 2), {
+      encoding: 'utf-8',
+    });
   }
 
   private filterRawData(
@@ -257,10 +428,9 @@ class Table {
   }
 
   private tablePath: string;
-  private name: string;
   private columns: Column[];
   private tables: Table[] | null = null;
   private logger: Logger;
 }
 
-export { Table };
+export { Table, type TableMetadata };

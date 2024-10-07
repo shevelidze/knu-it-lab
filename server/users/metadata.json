@@ -1,0 +1,12 @@
+{
+  "columns": [
+    {
+      "name": "name",
+      "dataType": "string"
+    },
+    {
+      "name": "age",
+      "dataType": "real"
+    }
+  ]
+}
