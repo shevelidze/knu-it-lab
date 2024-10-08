@@ -50,6 +50,7 @@ const UpdateRowsButton = ({
         Update matching
       </Button>
       <RowValuesFormModal
+        title='Update rows'
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         databaseName={databaseName}

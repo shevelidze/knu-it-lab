@@ -37,7 +37,7 @@ server.post(
       throw new Error(`Operation ${operation} not found`);
     }
 
-    return await table[operation as keyof typeof table](options);
+    return await (table[operation as keyof typeof table] as any)(options);
   },
 );
 

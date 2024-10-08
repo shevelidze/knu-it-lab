@@ -15,7 +15,7 @@ class Logger {
     console.warn(this.formatMessage(message));
   }
 
-  private formatMessage(message: string): string {
+  public formatMessage(message: string): string {
     return `${new Date().toISOString()} [${this.namespace}] ${message}`;
   }
 

@@ -31,6 +31,7 @@ type Props = {
   onSubmit: (values: Record<string, string | null>) => Promise<void>;
   isOpen: boolean;
   onClose: () => void;
+  title: string;
 };
 
 type Column = {
@@ -64,6 +65,7 @@ const RowValuesFormModal: React.FC<Props> = ({
   onSubmit,
   isOpen,
   onClose,
+  title,
 }) => {
   const toast = useToast();
   const [isSaving, setIsSaving] = useState(false);
@@ -127,7 +129,9 @@ const RowValuesFormModal: React.FC<Props> = ({
       }
 
       if (!REGEXP_BY_DATA_TYPE[dataTypeByColumnName[columnName]].test(value)) {
-        errors[columnName] = 'Invalid value';
+        errors[columnName] = `Invalid value. Expected format: ${
+          EXPECTED_FORMAT_BY_DATA_TYPE[dataTypeByColumnName[columnName]]
+        }`;
       }
     }
 
@@ -174,7 +178,7 @@ const RowValuesFormModal: React.FC<Props> = ({
       <Modal isOpen={isOpen} onClose={clearAndCloseModal} isCentered size='xl'>
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader>Add row</ModalHeader>
+          <ModalHeader>{title}</ModalHeader>
           <TableContainer>
             <Table>
               <Thead>

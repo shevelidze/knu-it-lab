@@ -38,6 +38,7 @@ const AddRowButton = ({ databaseName, tableName }: Props) => {
         Add row
       </Button>
       <RowValuesFormModal
+        title='Add row'
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         databaseName={databaseName}

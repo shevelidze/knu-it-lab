@@ -1,5 +1,5 @@
-import fs from 'fs/promises';
-import path from 'path';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { Column } from './column.class';
 import { MegaDbError, UnsupportedSearchOperationError } from './errors';
 import { Logger } from './logger.class';
@@ -319,7 +319,7 @@ class Table {
     });
   }
 
-  private evaluateSearchExpression(
+  public evaluateSearchExpression(
     row: Record<string, unknown>,
     columns: Column[],
     searchExpression?: SearchExpression,
