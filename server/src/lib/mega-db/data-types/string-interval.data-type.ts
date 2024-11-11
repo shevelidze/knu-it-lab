@@ -12,7 +12,9 @@ const StringInterval: StringIntervalDataType =
       if (
         !Array.isArray(value) ||
         value.length !== 2 ||
-        !value.every((v) => typeof v === 'string')
+        !value.every((v) => typeof v === 'string') ||
+        value[0].length !== value[1].length ||
+        value[0].localeCompare(value[1]) > 0
       ) {
         throw new MegaDbError('Value is not a string interval');
       }

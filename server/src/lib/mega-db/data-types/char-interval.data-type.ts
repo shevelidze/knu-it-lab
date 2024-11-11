@@ -11,7 +11,8 @@ const CharInterval: CharIntervalDataType = Object.freeze<CharIntervalDataType>({
     if (
       !Array.isArray(value) ||
       value.length !== 2 ||
-      !value.every((v) => typeof v === 'string' && v.length === 1)
+      !value.every((v) => typeof v === 'string' && v.length === 1) ||
+      value[0].localeCompare(value[1]) > 0
     ) {
       throw new MegaDbError('Value is not a char interval');
     }
